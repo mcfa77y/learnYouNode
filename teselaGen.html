@@ -1,0 +1,283 @@
+
+
+
+<html>
+    <head>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+
+
+        <style>
+
+            body {
+                font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+                width: 960px;
+                height: 500px;
+                position: relative;
+            }
+
+            svg {
+                width: 100%;
+                height: 100%;
+            }
+
+            path.slice{
+                stroke-width:2px;
+            }
+
+            polyline{
+                opacity: .3;
+                stroke: black;
+                stroke-width: 2px;
+                fill: none;
+            }
+
+        </style>
+
+        <script>
+            $.ajax({
+                url: "https://teselagen.com/getSequence",
+                type: "GET",
+                crossDomain: true,
+                dataType: "json",
+                success: function (response) {
+                    $('#output').html(JSON.stringify(response));
+                    doDonut(response);
+                },
+                error: function (xhr, status) {
+                    alert("error");
+                    $('#output').html("error");
+                }
+            });
+
+            // adds in space around a feature
+            function calculateSpace(feature, result){
+                var i = result.name.length;
+                var SPACE = "SPACE_" + i;
+
+                if (i == 0){
+                    result.name.push("");
+                    result.map[""] = {length: 1, index: 0};
+                    result.name.push(SPACE);
+                    result.map[SPACE] = {length: feature.index, index: 1};
+                } else {
+                    // calculate from previous result the new index and length
+                    var prev_result = result.map[result.name[i-1]];
+                    var index = prev_result.index + prev_result.length;
+                    var length = feature.index - index;
+
+                    result.map[SPACE] = {length: length, index: index};
+                    result.name.push(SPACE);
+                }
+            }
+
+            // parse data from ajax response
+            function insertSpaceAroundData(data){
+                var result = new Object();
+                result.name = [];
+                result.map = {};
+
+
+                // sort the features by index so the space
+                // length won't have negative values due
+                // to out of order indexes
+                var sortable = [];
+                for (var feature in data.features)
+                    sortable.push([data.features[feature], data.features[feature].index]);
+                sortable.sort(function(a, b) {return a[1] - b[1]});
+
+                // insert spaces around features
+                for (var i=0; i < data.features.length; i++){
+                    var feature = sortable[i][0];
+                    console.log(feature);
+                    calculateSpace(feature, result);
+                    if(result.map[feature.name] != null){
+                        feature.name += "_"
+                    }
+                    result.map[feature.name] = {length: feature.length, index: feature.index};
+                    result.name.push(feature.name);
+                }
+                if (feature.index < data.sequenceLength){
+                    calculateSpace({index: data.sequenceLength}, result);
+                }
+                console.log(result.map, data.features);
+                return result;
+            }
+
+            function doDonut(data){
+                var svg = d3.select("body")
+                .append("svg")
+                .append("g")
+
+                svg.append("g")
+                .attr("class", "slices");
+                svg.append("g")
+                .attr("class", "labels");
+                svg.append("g")
+                .attr("class", "lines");
+
+                var width = 960,
+                    height = 450,
+                    radius = Math.min(width, height) / 2;
+
+                var pie = d3.layout.pie()
+                .sort(null)
+                .value(function(d) {
+                    return d.value;
+                });
+
+                var arc = d3.svg.arc()
+                .outerRadius(radius * 0.8)
+                .innerRadius(radius * 0.78);
+
+                var outerArc = d3.svg.arc()
+                .innerRadius(radius * 0.9)
+                .outerRadius(radius * 0.9);
+
+                svg.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+                var key = function(d){
+                    return d.data.label;
+                };
+
+                var color = d3.scale.category20();
+
+                var dd = insertSpaceAroundData(data);
+
+                function setupData (){
+                    var labels = dd.name;
+                    return labels.map(function(label){
+                        return { label: label, value: dd.map[label].length, index: dd.map[label].index}
+                    });
+                }
+
+
+                var vis = d3.select("svg")
+                //GROUP FOR CENTER TEXT
+                var center_group = vis.append("g")
+                .attr("class", "center_group")
+                .attr("transform", "translate(" + (width / 2) + "," + (height / 2) + ")");
+
+                // "TOTAL" LABEL
+                var totalLabel = center_group.append("svg:text")
+                .attr("class", "label")
+                .attr("dy", -15)
+                .attr("text-anchor", "middle") // text-align: right
+                .text("Plasmid X: " + data.sequenceLength +" BP");
+
+
+                change(setupData());
+
+
+                function change(data) {
+
+                    /* ------- PIE SLICES -------*/
+                    var slice = svg.select(".slices").selectAll("path.slice")
+                    .data(pie(data), key);
+
+                    slice.enter()
+                    .insert("path")
+                    .style("fill", function(d) {
+                        if (d.data.label.indexOf("SPACE") == 0)
+                            return color("SPACE");
+                        else
+                            return color(d.data.label);
+                    })
+                    .attr("class", "slice");
+
+                    slice
+                    .transition().duration(1000)
+                    .attrTween("d", function(d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            return arc(interpolate(t));
+                        };
+                    })
+
+                    slice.exit()
+                    .remove();
+
+                    /* ------- TEXT LABELS -------*/
+
+                    var text = svg.select(".labels").selectAll("text")
+                    .data(pie(data), key);
+
+                    text.enter()
+                    .append("text")
+                    .attr("dy", ".35em")
+                    .text(function(d) {
+                        if (d.data.label.indexOf("SPACE") == 0)
+                            return "";
+                        else
+                            return d.data.label.replace("_","") + " " + d.data.index + " BP";
+                    });
+
+                    function midAngle(d){
+                        return d.startAngle + (d.endAngle - d.startAngle)/2;
+                    }
+
+                    text.transition().duration(1000)
+                    .attrTween("transform", function(d) {
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+                            return "translate("+ pos +")";
+                        };
+                    })
+                    .styleTween("text-anchor", function(d){
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            var d2 = interpolate(t);
+                            return midAngle(d2) < Math.PI ? "start":"end";
+                        };
+                    });
+
+                    text.exit()
+                    .remove();
+
+
+
+                    /* ------- SLICE TO TEXT POLYLINES -------*/
+
+                    var polyline = svg.select(".lines").selectAll("polyline")
+                    .data(pie(data), key);
+
+                    polyline.enter()
+                    .append("polyline");
+
+                    polyline.transition().duration(1000)
+                    .attrTween("points", function(d){
+                        if (d.data.label.indexOf("SPACE") == 0)
+                            return "";
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                            return [arc.centroid(d2), outerArc.centroid(d2), pos];
+                        };
+                    });
+
+                    polyline.exit()
+                    .remove();
+                };
+            }
+        </script>
+    </head>
+    <body>
+
+
+
+
+    </body>
+</html>
