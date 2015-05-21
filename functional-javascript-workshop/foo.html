@@ -1,0 +1,42 @@
+<div id="readLessInfo" class="row collapse in">
+  <div class="row">
+    <div class="col-md-10">
+      <h3>
+       Select your
+       <a href="http://en.wikipedia.org/wiki/FASTA_format" target="_blank">FASTA file</a>
+       from . Max. size: 1000 sequences × 1000 positions. We never store your data.
+       <a href="#!" data-toggle="collapse" data-target="#readMoreInfo" aria-expanded="false">Read more...</a>
+     </h3>
+   </div>
+   <div class="col-md-1">
+    <button type="button" class="close moreInfoQuestionIcon" data-toggle="collapse" data-target="#readMoreInfo" aria-label="Close">
+      <span class="glyphicon glyphicon-question-sign" aria-expanded="true" aria-hidden="true"></span>
+    </button>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-12">
+    <form id="fileSequenceForm">
+      <!-- The fileinput-button span is used to style the file input field as button -->
+      <span id="filename2"></span>
+      <div id="messages" class="files"></div>
+      <div class="hide" style="padding: 0px 1.5em 1.5em 1.5em;">
+        <select id="alignmentTypeFile" class="edit-dropdown" name="alignmentType">
+          <option value="AMINOACIDS" selected="selected">AMINO ACIDS</option>
+          <option value="NUCLEOTIDES">NUCLEOTIDES</option>
+          <option value="RNA">RNA</option>
+        </select>
+      </div>
+      <div class="row submit-settings">
+        <div class="col-md-12">
+          <span class="btn btn-success fileinput-button" style="margin-left: 20px;"> <i class="glyphicon glyphicon-download-alt"></i> <span>BROWSE
+            AND VALIDATE</span>
+            <!-- The file input field used as target for the file upload widget -->
+            <input id="fileUpload" data-url="/upload/file" name="file" type="file">
+          </span>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
